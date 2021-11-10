@@ -19,6 +19,14 @@ MMR_HF$Treatment <- "High food"
 
 All.MMR.data <- rbind(MMR_LF, MMR_HF)
 str(All.MMR.data)
+
+## Add other info from batch file
+batch <- read.table(file = "Data/All_MMR_batch_info_fixed.txt", header = T)
+head(batch)
+
+batch <- dplyr::select(batch, -c(Batch, weight, Fam, Quadrant, Channel))
+All.MMR.data <- left_join(All.MMR.data, batch, c("Ind" = "PIT_MMR"))
+
 save(All.MMR.data, file = "Data/All.MMR.data")
 
 ### N in each group

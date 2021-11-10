@@ -39,25 +39,20 @@ all.AS.data %>%
 ## Main effects of genotypes, sex, treatment and mass on AS.
 absAS.main.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
-                    log10(Mass)+
+                    scale(Order)+
+                    scale(log10(Mass))+
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber) +
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
 plot_model(absAS.main.mod, type = "diag")
 outlierTest(absAS.main.mod)
-
-absAS.mod.res <- cbind(all.AS.data, resid(absAS.main.mod))
-leveneTest(resid(absAS.main.mod)~ Treatment, data =  absAS.mod.res)
-leveneTest(resid(absAS.main.mod)~ Sex, data =  absAS.mod.res)
-leveneTest(resid(absAS.main.mod)~ Call_vgll3, data =  absAS.mod.res)
-leveneTest(resid(absAS.main.mod)~ Call_six6, data =  absAS.mod.res)
-
 
 summary(absAS.main.mod)
 anova(absAS.main.mod)
@@ -66,19 +61,21 @@ anova(absAS.main.mod)
 
 absAS.mod.full <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
                     Call_vgll3:Call_six6+
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
-                    Treatment:Call_vgll3 +
-                    Treatment:Call_six6 +
+                    scale(log10(Mass))+
+                    scale(Order)+
+                    Treatment_centred:scale(log10(Mass))+
+                    Treatment_centred:Call_vgll3 +
+                    Treatment_centred:Call_six6 +
                     Sex : Call_vgll3+
                     Sex: Call_six6 +
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber) +
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
@@ -98,16 +95,16 @@ table.absAS.full <- data.frame(Coefficient = row.names(sum.absAS.full$coefficien
                            F = c(sum.absAS.full$coefficients[,4][1], aov.absAS.full$`F value`),
                            p = c(sum.absAS.full$coefficients[,5][1], aov.absAS.full$`Pr(>F)`))
 
-table.absAS.full <- mutate(table.absAS.full, across(-1, round, 3))
+table.absAS.full <- mutate(table.absAS.full, across(-1, round, 5))
 
 table.absAS.full
 
-# Table of random effects:
+# Table of random effects 
 re.table.absAS.full <- as.data.frame(sum.absAS.full$varcor) %>%
   dplyr::select(-(c(var1, var2, sdcor))) %>% #drop unnecessary cols
   rename("Random effect" = "grp", "Var" = "vcov") %>%
-  mutate("C.I.low" = c(confs.full[1,1], confs.full[2,1], NA),
-       "C.I.high" = c(confs.full[1,2], confs.full[2,2], NA),) %>%
+  mutate("C.I.low" = c(confs.full[1,1]^2, confs.full[2,1]^2, confs.full[3,1]^2, NA),
+       "C.I.high" = c(confs.full[1,2]^2, confs.full[2,2]^2,confs.full[3,2]^2, NA),) %>%
   mutate(across(2:4, round, 4))
 
 re.table.absAS.full
@@ -120,18 +117,20 @@ write.xlsx(re.table.absAS.full, file = "re.table.absAS.full.xlsx")
 ## Simplify model. Remove Treatment:Call_six6
 absAS.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
                     Call_vgll3:Call_six6+
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
+                    scale(log10(Mass))+
+                    scale(Order)+
+                    Treatment_centred:scale(log10(Mass))+
                     Treatment:Call_vgll3 +
                     Sex : Call_vgll3+
                     Sex: Call_six6 +
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber)+
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
@@ -142,17 +141,19 @@ confint(absAS.mod)
 
 absAS.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
                     Call_vgll3:Call_six6+
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
+                    scale(log10(Mass))+
+                    scale(Order)+
+                    Treatment_centred:scale(log10(Mass))+
                     Treatment:Call_vgll3 +
                     Sex : Call_vgll3+
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber)+
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
@@ -162,60 +163,100 @@ confint(absAS.mod)
 # Remove Treatment:Call_vgll3
 absAS.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
                     Call_vgll3:Call_six6+
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
+                    scale(log10(Mass))+
+                    scale(Order)+
+                    Treatment_centred:scale(log10(Mass))+
                     Sex : Call_vgll3+
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber)+
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
 anova(absAS.mod)
-confint(absAS.mod)
+summary(absAS.mod)
 
-# The genotype interaction and sex-vgll3 interaction similar effect, non-significant, remove sex interaction
+# Remove genotype interaction
 absAS.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
-                    Call_vgll3:Call_six6+
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
+                    scale(log10(Mass))+
+                    scale(Order)+
+                    Treatment_centred:log10(Mass)+
+                    Sex : Call_vgll3+
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber)+
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
 anova(absAS.mod)
 confint(absAS.mod)
 
-# remove also six6:Call_vgll3
-# final mod
-absAS.mod.final <- lmer(na.action = "na.fail" ,
+# remove Sex:Call_vgll3
+
+absAS.mod <- lmer(na.action = "na.fail" ,
                   log10(absAS) ~
-                    Treatment +
+                    Treatment_centred +
                     Sex +
                     Call_vgll3 +
                     Call_six6 +
-                    log10(Mass)+
-                    Treatment:log10(Mass)+
+                    scale(Order)+
+                    scale(log10(Mass))+
+                    Treatment_centred:scale(log10(Mass))+
                     (1|Family) +
-                    (1|MMR.Chamber),
+                    (1|MMR.Chamber) +
+                    (1|initial),
                   REML = F,
                   data = all.AS.data)
 
-anova(absAS.mod.final, type =3)
+anova(absAS.mod)
+
+# remove order
+absAS.mod.final <- lmer(na.action = "na.fail" ,
+                  log10(absAS) ~
+                    Treatment_centred +
+                    Sex +
+                    Call_vgll3 +
+                    Call_six6 +
+                    scale(log10(Mass))+
+                    Treatment_centred:scale(log10(Mass))+
+                    (1|Family) +
+                    (1|MMR.Chamber) +
+                    (1|initial),
+                  REML = F,
+                  data = all.AS.data)
+
 sum.absAS.final <- summary(absAS.mod.final)
 aov.absAS.final <- anova(absAS.mod.final)
 confs.final <- confint(absAS.mod.final, oldNames=FALSE)
 
+## Check variance partitioning, need to run again with mass-corrected data (which is the relevant response)
+all.AS.data$resid_AS <- resid(lm(log10(absAS) ~ log10(Mass), data = all.AS.data))
+
+AS.mod.part <- lmer(na.action = "na.fail" ,
+                     resid_AS ~
+                      Treatment_centred +
+                      Sex +
+                      Call_vgll3 +
+                      Call_six6 +
+                      (1|Family) +
+                      (1|MMR.Chamber) +
+                      (1|initial),
+                     REML = F,
+                     data = all.AS.data)
+
+partR2_AS <- partR2(AS.mod.part, partvars = c("Call_vgll3"), nboot = 1000)
+R2s_AS <- partR2_AS$R2
+write.xlsx(R2s_AS, file ="AS_R2s.xlsx")
 
 ## Make a summary table with estimates and type 3 effects
 table.absAS.final <- data.frame(Coefficient = row.names(sum.absAS.final$coefficients),
@@ -226,7 +267,7 @@ table.absAS.final <- data.frame(Coefficient = row.names(sum.absAS.final$coeffici
                                F = c(sum.absAS.final$coefficients[,4][1], aov.absAS.final$`F value`), #First value is for intercept
                                p = c(sum.absAS.final$coefficients[,5][1], aov.absAS.final$`Pr(>F)`))
 
-table.absAS.final <- mutate(table.absAS.final, across(-1, round, 3))
+table.absAS.final <- mutate(table.absAS.final, across(-1, round, 5))
 
 table.absAS.final
 
@@ -234,9 +275,8 @@ table.absAS.final
 re.table.absAS.final <- as.data.frame(sum.absAS.final$varcor) %>%
   dplyr::select(-(c(var1, var2, sdcor))) %>% #drop unnecessary cols
   rename("Random effect" = "grp", "Var" = "vcov") %>%
-  mutate("C.I.low" = c(confs.final[1,1], confs.final[2,1], NA),
-         "C.I.high" = c(confs.final[1,2], confs.final[2,2], NA),) %>%
-  mutate(across(2:4, round, 4))
+  mutate("C.I.low" = c(confs.final[1,1]^2, confs.final[2,1]^2, confs.final[3,1]^2, NA),
+         "C.I.high" = c(confs.final[1,2]^2, confs.final[2,2]^2,confs.final[3,2]^2, NA)) 
 
 re.table.absAS.final
 
@@ -247,18 +287,20 @@ write.xlsx(re.table.absAS.final, file = "re.table.absAS.final.xlsx")
 
 
 ### Does adding rSMR to the model affect genotype result?
+all.AS.data$rSMR.mass <- resid(lm(log10(SMR.abs.mlnd) ~ log10(Mass), data = all.AS.data))
 
 absAS.mod.smr <- lmer(na.action = "na.fail" ,
                         log10(absAS) ~
-                          Treatment +
-                          Sex +
-                          Call_vgll3 +
-                          Call_six6 +
-                          log10(Mass)+
-                          Treatment:log10(Mass)+
-                         all.SMR.resid +
-                          (1|Family) +
-                          (1|MMR.Chamber),
+                        scale(all.SMR.resid) + 
+                        Treatment_centred +
+                        Sex +
+                        Call_vgll3 +
+                        Call_six6 +
+                        scale(log10(Mass))+
+                        Treatment_centred:scale(log10(Mass))+
+                        (1|Family) +
+                        (1|MMR.Chamber) +
+                        (1|initial),
                         REML = F,
                         data = all.AS.data)
 
@@ -279,7 +321,7 @@ table.absAS.smr <- data.frame(Coefficient = row.names(sum.absAS.smr$coefficients
                                 F = c(sum.absAS.smr$coefficients[,4][1], aov.absAS.smr$`F value`), #First value is for intercept
                                 p = c(sum.absAS.smr$coefficients[,5][1], aov.absAS.smr$`Pr(>F)`))
 
-table.absAS.smr <- mutate(table.absAS.smr, across(-1, round, 3))
+table.absAS.smr <- mutate(table.absAS.smr, across(-1, round, 5))
 
 table.absAS.smr
 
@@ -287,9 +329,8 @@ table.absAS.smr
 re.table.absAS.smr <- as.data.frame(sum.absAS.smr$varcor) %>%
   dplyr::select(-(c(var1, var2, sdcor))) %>% #drop unnecessary cols
   rename("Random effect" = "grp", "Var" = "vcov") %>%
-  mutate("C.I.low" = c(confs.as.smr[1,1]^2, confs.as.smr[2,1]^2, NA),
-         "C.I.high" = c(confs.as.smr[1,2]^2, confs.as.smr[2,2]^2, NA),) %>%
-  mutate(across(2:4, round, 4))
+  mutate("C.I.low" = c(confs.as.smr[1,1]^2, confs.as.smr[2,1]^2,confs.as.smr[3,1]^2, NA),
+         "C.I.high" = c(confs.as.smr[1,2]^2, confs.as.smr[2,2]^2,confs.as.smr[3,2]^2, NA))
 
 re.table.absAS.smr
 
@@ -298,28 +339,38 @@ re.table.absAS.smr
 write.xlsx(table.absAS.smr, file = "table.absAS.smr.xlsx")
 write.xlsx(re.table.absAS.smr, file = "re.table.absAS.smr.xlsx")
 
+### Levene's tests
+absAS.mod.res <- cbind(all.AS.data, resid(absAS.mod.final))
+
+leveneTest(resid(absAS.mod.final)~ Treatment, data =  absAS.mod.res)
+leveneTest(resid(absAS.mod.final)~ as.factor(Sex), data =  absAS.mod.res)
+leveneTest(resid(absAS.mod.final)~ Vgll3, data =  absAS.mod.res)
+leveneTest(resid(absAS.mod.final)~ Six6, data =  absAS.mod.res)
+
 ##################################################
 ##SMR-mass scaling plot using partial residuals
 ################################################## 
-plot_scaling <- interactions::interact_plot(absAS.mod.final, pred = Mass, modx = Treatment, interval = T, 
-                            int.type = "confidence", plot.points = T, partial.residuals = T, 
-                            point.alpha = 0.4, colors = c("#F57B17FF", "#FCAE12FF")) +
+
+plot_scaling <- interactions::interact_plot(absAS.mod.final, pred = Mass, modx = Treatment_centred, 
+                                            modx.values = c(-0.5, 0.5),
+                                            modx.labels = c("High food", "Low food"), interval = T, 
+                                            int.type = "confidence", plot.points = T, partial.residuals = T, 
+                                            point.alpha = 0.4, colors = c("#2A1A3C", "#F3771A"))  +
   coord_trans(x = "log") +
-  scale_color_viridis(discrete=TRUE, option = "inferno", begin = 0.1, end = 0.7) +
-  #scale_colour_manual(values = c("#F57B17FF", "grey"), breaks = waiver()) +
   ylab(expression(paste("Log"[10], " AS (mg ", O[2], "/h)"))) +
   xlab(expression(paste("Body mass (g)"))) +
-  theme(legend.position = c(0.8,0.2),
+  theme(legend.position = c(0.78,0.2),
         legend.title = element_blank())
 
-ggsave(plot_scaling, file= "plot_scaling_AS.tiff",  width = 8, height = 7, units = "cm")
+ggsave(plot_scaling, file= "plot_scaling_AS.tiff",  width = 8.5, height = 7, units = "cm")
 
 ##################################################
 ## Predicted means
 ##################################################
 ### The means of vgll3 EE and LL
+mean(all.AS.data$Mass)
 predict.vgll3 <- ggpredict(absAS.mod.final, terms = c("Call_vgll3"), type = "fe", ci.lvl = 0.9,
-                           back.transform = FALSE)
+                           condition =c("Mass" = 3.7), back.transform = FALSE)
 
 predict.vgll3
 
@@ -328,8 +379,9 @@ predict.vgll3[,2:5]<- 10^predict.vgll3[,2:5]
 predict.vgll3[,2:5]<- predict.vgll3[,2:5]/0.0037
 predict.vgll3
 
-# Predictions from final model after removing non-significant interactions
-absAS.predict <- ggpredict(absAS.mod.final, terms = c("Call_vgll3", "Call_six6"), type = "fe", ci.lvl = 0.9,
+# Predictions from final model for six6 and vgll3
+absAS.predict <- ggpredict(absAS.mod.final, terms = c("Call_vgll3", "Call_six6"), type = "fe", 
+                           ci.lvl = 0.9,condition =c("Mass" = 3.7),
                            back.transform = FALSE)
 
 plot(absAS.predict)
@@ -357,9 +409,6 @@ corr1 <- round(cor(corrdata1), 2)
 # p-values for correlations
 p.mat <- cor_pmat(corrdata1)
 
-corrplot1<- ggcorrplot(corr1, hc.order = TRUE, type = "lower",
-                      lab = TRUE, colors  = "white", lab_size = 3, tl.cex = 8)
-
 corrdata2 <- all.AS.data %>%
   filter(Treatment == "Low food") %>%
   dplyr::select(c("all.SMR.resid", "all.MMR.resid", "absAS.resid"))
@@ -386,12 +435,12 @@ ggsave(smr_mmr, file= "Fig3.png", width = 9, height = 7, units = "cm")
 ##################################################
 
 
-AAS_noH_N <- all.AS.data %>%
+AAS_N <- all.AS.data %>%
   group_by(Call_vgll3, Call_six6) %>%
   summarise(N = length(absAS[is.na(absAS)=="FALSE"])) %>%
   rename(x = Call_vgll3, group = Call_six6)
 
-AAS_noH_allfamN<-all.AS.data %>%
+AAS_allfamN<-all.AS.data %>%
   group_by(Family,Treatment,Call_vgll3, Call_six6) %>%
   summarise(N = length(absAS[is.na(absAS)=="FALSE"])) %>%
   rename(x = Call_vgll3, group = Call_six6)
@@ -399,3 +448,42 @@ AAS_noH_allfamN<-all.AS.data %>%
 all.AS.data %>%
   group_by(Treatment) %>%
   summarise(N = length(absAS[is.na(absAS)=="FALSE"]))
+
+## write table
+AS.data.analysed <- all.AS.data %>%
+  select(-c(all.SMR.resid, all.MMR.resid, absAS.resid, q0.1.SMR.resid,
+            q0.2.SMR.resid, mlndSMR.resid , SMR.mass.mlnd, SMR.abs.mlnd,
+            MR.abs, MR.mass )) %>%
+  rename("absAS_mgO2_h" = "absAS")
+
+write.table(AS.data.analysed, file= "Data/Analysed.AbsAS.data.txt", row.names = F,quote = F, dec = ".", sep = "\t")
+
+##################################################
+## Plot mass-adjusted data
+##################################################
+
+all.AS.data$Vgll3 <- dplyr::recode(all.AS.data$Vgll3, "EE" = "Early",  "LL" = "Late")
+all.AS.data$Six6 <- dplyr::recode(all.AS.data$Six6, "EE" = "Early",  "LL" = "Late")
+
+AS_plot <- ggplot(all.AS.data, aes(y= absAS.resid, x= Vgll3, shape = Six6))+
+  geom_boxplot(outlier.shape = NA)+
+  geom_point(position = position_jitterdodge(.3), 
+             size =2, alpha = 0.5, color = "#420A68FF") +
+  # y-axis title is the plot title
+  ggtitle(label = "Residual aerobic scope")+
+  xlab("vgll3")+
+ # labs(colour = "six6")+
+ # scale_color_viridis(begin = 0.19, end = 0.7, discrete = T, option = "inferno") +
+  theme_bw()+
+  theme(panel.spacing.x=unit(0, "lines"),
+        plot.title = element_text(size =10),
+        plot.subtitle =  element_text(size =9),
+        axis.text.y = element_text(size=10),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size=10, vjust=0.6),
+        panel.grid.minor.x =element_blank(),
+        panel.grid.major.x=element_blank(),
+        legend.position = "none")
+
+ggsave(AS_plot, filename = "AS_plot.png", width = 7, height = 12, units = "cm", dpi = 300)
+

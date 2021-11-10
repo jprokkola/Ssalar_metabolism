@@ -15,22 +15,37 @@ library(ggplot2)
 library(viridis)
 library(ggpubr)
 library(openxlsx)
+library(lubridate)
+library(partR2)
 
 # Load data that was created with Combine_MMR.R.
-load("All.MMR.data")
+load("Data/All.MMR.data")
 head(All.MMR.data)
 
 All.MMR.data$MR.abs # 2 NA, remove them
 All.MMR.data <- filter(All.MMR.data, is.na(MR.abs) == FALSE)
 
-## Edit genotypes E and L to EE or LL
-All.MMR.data $Call_vgll3 <- dplyr::recode(All.MMR.data $Call_vgll3, E = "EE", L = "LL")
-All.MMR.data $Call_six6 <- dplyr::recode(All.MMR.data $Call_six6, E = "EE", L = "LL")
+## Edit genotypes E and L to EE or LL (for plots)
+All.MMR.data $Vgll3 <- dplyr::recode(All.MMR.data $Call_vgll3, E = "EE", L = "LL")
+All.MMR.data $Six6 <- dplyr::recode(All.MMR.data $Call_six6, E = "EE", L = "LL")
+
+## Edit genotypes E and L to -0.5 or 0.5
+All.MMR.data $Call_vgll3 <- dplyr::recode(All.MMR.data $Call_vgll3, E = -0.5, L = 0.5)
+All.MMR.data $Call_six6 <- dplyr::recode(All.MMR.data $Call_six6, E = -0.5, L = 0.5)
+
+## Edit sex F and M to -0.5 or 0.5
+All.MMR.data $Sex <- dplyr::recode(All.MMR.data $Sex, "F" = -0.5, M = 0.5)
+
+## Edit treatment High food and Low food to -0.5 or 0.5
+All.MMR.data $Treatment_centred <- dplyr::recode(All.MMR.data $Treatment, "High food" = -0.5, "Low food" = 0.5)
 
 ## Removed 1 outlier earlier based on model
 All.MMR.data[147,]
 All.MMR.data <- filter(All.MMR.data, !(Ind =="A00000D0900001897007276"))
-save(All.MMR.data, file ="Data/All.MMR.data")
+save(All.MMR.data, file ="../Data/All.MMR.data")
+
+#write.table(All.MMR.data, file= "Data/Analysed.MMR.data.txt", row.names = F,
+#            quote = F, dec = ".", sep = "\t")
 
 ## Plot MMR vs mass
 ggplot(All.MMR.data, aes(y= log10(MR.abs), x=log10(Mass)))+
@@ -39,7 +54,6 @@ ggplot(All.MMR.data, aes(y= log10(MR.abs), x=log10(Mass)))+
   ylab(expression(paste("Log"[10], " MMR (mg ", O[2], "/h)"))) +
   xlab(expression(paste("Log"[10], " body mass (g)"))) +
   theme_bw()
-
 
 # Scaling exponents
 All.MMR.data %>%
@@ -51,13 +65,14 @@ All.MMR.data %>%
 
 MMR.main.mod <- lmer(na.action = "na.fail" ,
                log10(MR.abs) ~
-                 Treatment +
+                 Treatment_centred +
                  Sex +
                  Call_vgll3 +
                  Call_six6 +
-                 log10(Mass)+
-                 (1|Family) +
-                 (1|Chamber.No),
+                 scale(log10(Mass))+
+                 (1|Chamber.No) +
+                 (1|initial) +
+                 (1|Family),
               REML = F,
               data = All.MMR.data)
 
@@ -66,28 +81,29 @@ outlierTest(MMR.main.mod)
 plot_model(MMR.main.mod, type = "diag")
 MMR.main.mod.res <- cbind(All.MMR.data, resid(MMR.main.mod))
 leveneTest(resid(MMR.main.mod)~ Treatment, data =  MMR.main.mod.res)
-leveneTest(resid(MMR.main.mod)~ Sex, data =  MMR.main.mod.res)
-leveneTest(resid(MMR.main.mod)~ Call_vgll3, data =  MMR.main.mod.res)
-leveneTest(resid(MMR.main.mod)~ Call_six6, data =  MMR.main.mod.res)
+leveneTest(resid(MMR.main.mod)~ as.factor(Sex), data =  MMR.main.mod.res)
+leveneTest(resid(MMR.main.mod)~ Vgll3, data =  MMR.main.mod.res)
+leveneTest(resid(MMR.main.mod)~ Six6, data =  MMR.main.mod.res)
 summary(MMR.main.mod)
-anova(MMR.main.mod)
 
 #### Full model with interactions
 MMR.full.mod<- lmer(na.action = "na.fail" ,
      log10(MR.abs) ~
-       Treatment +
+       Treatment_centred +
        Sex +
        Call_vgll3 +
        Call_six6 +
        Call_vgll3:Call_six6+
-       log10(Mass)+
-       Treatment:log10(Mass)+
-       Treatment:Call_vgll3 +
-       Treatment:Call_six6 +
-       Sex : Call_vgll3+
-       Sex: Call_six6 +
-       (1|Family) +
-       (1|Chamber.No),
+       scale(log10(Mass))+
+       scale(Order) + #the order of testing pairs of fish 1-8
+       Treatment_centred:scale(log10(Mass))+
+       Treatment_centred:Call_vgll3 +
+       Treatment_centred:Call_six6 +
+       Sex:Call_vgll3 +
+       Sex:Call_six6 +
+       (1|Chamber.No) +
+       (1|initial) +
+       (1|Family),
      REML = F,
      data = All.MMR.data)
 
@@ -116,8 +132,8 @@ table.MMR.full
 re.table.MMR.full <- as.data.frame(sum.MMR.full.mod$varcor) %>%
   dplyr::select(-(c(var1, var2, sdcor))) %>% #drop unnecessary cols
   rename("Random effect" = "grp", "Var" = "vcov") %>%
-  mutate("C.I.low" = c(confs.full[1,1], confs.full[2,1], NA),
-         "C.I.high" = c(confs.full[1,2], confs.full[2,2], NA),) %>%
+  mutate("C.I.low" = c(confs.full[1,1]^2, confs.full[2,1]^2,confs.full[3,1]^2, NA),
+         "C.I.high" = c(confs.full[1,2]^2, confs.full[2,2]^2, confs.full[3,2]^2,NA),) %>%
   mutate(across(2:4, round, 4))
 
 re.table.MMR.full
@@ -127,127 +143,149 @@ re.table.MMR.full
 write.xlsx(table.MMR.full, file = "table.MMR.full.xlsx")
 write.xlsx(re.table.MMR.full, file = "re.table.MMR.full.xlsx")
 
-
-### Simplify model, remove Treatment:Call_six6 
+### Simplify model, remove sex:Call_six6 
 MMR.mod.2<- lmer(na.action = "na.fail" ,
                     log10(MR.abs) ~
-                      Treatment +
-                      Sex +
-                      Call_vgll3 +
-                      Call_six6 +
-                      Call_vgll3:Call_six6+
-                      log10(Mass)+
-                      Treatment:log10(Mass)+
-                      Treatment:Call_vgll3 +
-                      Sex : Call_vgll3+
-                      Sex: Call_six6 +
-                      (1|Family) +
-                      (1|Chamber.No),
+                   Treatment_centred +
+                   Sex +
+                   Call_vgll3 +
+                   Call_six6 +
+                   Call_vgll3:Call_six6+
+                   scale(log10(Mass))+
+                   scale(Order) + #the order of testing pairs of fish 1-8
+                   Treatment_centred:scale(log10(Mass))+
+                   Treatment_centred:Call_vgll3 +
+                   Treatment_centred:Call_six6 +
+                   Sex:Call_vgll3 +
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
                     REML = F,
                     data = All.MMR.data)
 
 anova(MMR.mod.2)
-confint(MMR.mod.2)
 
-### Simplify model, remove Sex:Call_six6 
+### Simplify model, remove Treatment:Call_six6 
 MMR.mod.2<- lmer(na.action = "na.fail" ,
                  log10(MR.abs) ~
-                   Treatment +
+                   Treatment_centred +
                    Sex +
                    Call_vgll3 +
                    Call_six6 +
                    Call_vgll3:Call_six6+
-                   log10(Mass)+
-                   Treatment:log10(Mass)+
-                   Treatment:Call_vgll3 +
-                   Sex : Call_vgll3+
-                   (1|Family) +
-                   (1|Chamber.No),
+                   scale(log10(Mass))+
+                   scale(Order) + #the order of testing pairs of fish 1-8
+                   Treatment_centred:scale(log10(Mass))+
+                   Treatment_centred:Call_vgll3 +
+                   Sex:Call_vgll3 +
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
                  REML = F,
                  data = All.MMR.data)
 
 anova(MMR.mod.2)
 confint(MMR.mod.2)
-
 
 ### Simplify model, remove Treatment:Call_vgll3 
 MMR.mod.2<- lmer(na.action = "na.fail" ,
                  log10(MR.abs) ~
-                   Treatment +
+                   Treatment_centred +
                    Sex +
                    Call_vgll3 +
                    Call_six6 +
                    Call_vgll3:Call_six6+
-                   log10(Mass)+
-                   Treatment:log10(Mass)+
-                   Sex : Call_vgll3+
-                   Sex: Call_six6 +
-                   (1|Family) +
-                   (1|Chamber.No),
+                   scale(log10(Mass))+
+                   scale(Order) + #the order of testing pairs of fish 1-8
+                   Treatment_centred:scale(log10(Mass))+
+                   Sex:Call_vgll3 +
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
                  REML = F,
                  data = All.MMR.data)
 
 anova(MMR.mod.2)
 confint(MMR.mod.2)
 
-### Simplify model, remove Sex:Call_six6
+### Simplify model, remove Treatment:Mass
 MMR.mod.2<- lmer(na.action = "na.fail" ,
                  log10(MR.abs) ~
-                   Treatment +
+                   Treatment_centred +
                    Sex +
                    Call_vgll3 +
                    Call_six6 +
                    Call_vgll3:Call_six6+
-                   log10(Mass)+
-                   Treatment:log10(Mass)+
-                   Sex : Call_vgll3+
-                   (1|Family) +
-                   (1|Chamber.No),
+                   scale(log10(Mass))+
+                   scale(Order) + #the order of testing pairs of fish 1-8
+                   Sex:Call_vgll3 +
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
+                 REML = F,
+                 data = All.MMR.data)
+
+anova(MMR.mod.2)
+
+### Simplify model, remove Sex:Call_vgll3 
+MMR.mod.2<- lmer(na.action = "na.fail" ,
+                 log10(MR.abs) ~
+                   Treatment_centred +
+                   Sex +
+                   Call_vgll3 +
+                   Call_six6 +
+                   Call_vgll3:Call_six6+
+                   scale(log10(Mass))+
+                   scale(Order) + #the order of testing pairs of fish 1-8
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
+                 REML = F,
+                 data = All.MMR.data)
+
+anova(MMR.mod.2)
+
+## Remove also Order (not a main unterest, unsignificant)
+MMR.mod.2<- lmer(na.action = "na.fail" ,
+                 log10(MR.abs) ~
+                   Treatment_centred +
+                   Sex +
+                   Call_vgll3 +
+                   Call_six6 +
+                   Call_vgll3:Call_six6+
+                   scale(log10(Mass))+
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
                  REML = F,
                  data = All.MMR.data)
 
 anova(MMR.mod.2)
 summary(MMR.mod.2)
-confint(MMR.mod.2)
 
-### Simplify model, remove Sex:Call_vgll3 (similar p-value es Treatment-mass but much smaller effect)
-MMR.mod.2<- lmer(na.action = "na.fail" ,
-                 log10(MR.abs) ~
-                   Treatment +
+## Check variance partitioning, need to run again with mass-corrected data (which is the relevant response)
+All.MMR.data$resid_MMR <- resid(lm(log10(MR.abs) ~ log10(Mass), data =All.MMR.data))
+
+MMR.mod.part <- lmer(na.action = "na.fail" ,
+                  resid_MMR ~
+                   Treatment_centred +
                    Sex +
                    Call_vgll3 +
                    Call_six6 +
                    Call_vgll3:Call_six6+
-                   log10(Mass)+
-                   Treatment:log10(Mass)+
-                   (1|Family) +
-                   (1|Chamber.No),
+                   (1|Chamber.No) +
+                   (1|initial) +
+                   (1|Family),
                  REML = F,
                  data = All.MMR.data)
 
-anova(MMR.mod.2)
-summary(MMR.mod.2)
-confint(MMR.mod.2)
+partR2_MMR <- partR2(MMR.mod.part, partvars = c("Call_vgll3", "Call_six6", "Call_vgll3:Call_six6"), nboot = 1000)
 
-## Remove also Treatment:log10(Mass)
+str(partR2_MMR)
+R2s <- partR2_MMR$R2
+write.xlsx(R2s, file ="MMR_R2s.xlsx")
 
-MMR.mod.2<- lmer(na.action = "na.fail" ,
-                 log10(MR.abs) ~
-                   Treatment +
-                   Sex +
-                   Call_vgll3 +
-                   Call_six6 +
-                   Call_vgll3:Call_six6+
-                   log10(Mass)+
-                   (1|Family) +
-                   (1|Chamber.No),
-                 REML = F,
-                 data = All.MMR.data)
-
-anova(MMR.mod.2)
-anova(MMR.mod.2, type = 2) # are type 2 ssq consistent?
-summary(MMR.mod.2)
-
+## Collate results of final model
 confs.mod2 <- confint(MMR.mod.2, oldNames=FALSE)
 
 # Final model, significant gene interaction
@@ -263,7 +301,7 @@ table.MMR.mod2 <- data.frame( Coefficient = row.names(sum.MMR.mod.2$coefficients
                               F = c(sum.MMR.mod.2$coefficients[,4][1], aov.MMR.mod.2$`F value`),
                               p = c(sum.MMR.mod.2$coefficients[,5][1], aov.MMR.mod.2$`Pr(>F)`))
 
-table.MMR.mod2 <- mutate(table.MMR.mod2, across(-1, round, 3))
+table.MMR.mod2 <- mutate(table.MMR.mod2, across(-1, round, 4))
 
 table.MMR.mod2
 
@@ -271,8 +309,8 @@ table.MMR.mod2
 re.table.MMR.mod2 <- as.data.frame(sum.MMR.full.mod$varcor) %>%
   dplyr::select(-(c(var1, var2, sdcor))) %>% #drop unnecessary cols
   rename("Random effect" = "grp", "Var" = "vcov") %>%
-  mutate("C.I.low" = c(confs.mod2[1,1], confs.mod2[2,1], NA),
-         "C.I.high" = c(confs.mod2[1,2], confs.mod2[2,2], NA)) %>%
+  mutate("C.I.low" = c(confs.mod2[1,1]^2, confs.mod2[2,1]^2,confs.mod2[3,1]^2, NA),
+         "C.I.high" = c(confs.mod2[1,2]^2, confs.mod2[2,2]^2, confs.mod2[3,2]^2, NA)) %>%
   mutate(across(2:4, round, 4))
 
 re.table.MMR.mod2
@@ -296,7 +334,7 @@ pairs(prwise) # six6 diff
 ##################################################
 
 MMR.predict <- ggpredict(MMR.mod.2, terms = c("Call_vgll3","Call_six6"), type = "fe", ci.lvl = 0.9,
-                            back.transform = FALSE)
+                         condition =c("Mass" = 3.71), back.transform = FALSE)
 MMR.predict
 plot(MMR.predict)
 
@@ -315,3 +353,4 @@ save(MMR.predict, file = "MMR.predict")
 all_mmr_N <- All.MMR.data %>%
   group_by(Treatment, Family, Call_vgll3, Call_six6) %>%
   summarise(N = length(MR.abs[is.na(MR.abs)=="FALSE"]))
+

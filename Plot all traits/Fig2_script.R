@@ -3,7 +3,6 @@
 #######################################################################################
 
 library(ggplot2)
-library(patchwork)
 library(tidyverse)
 library(viridis)
 library(ggpubr)
@@ -18,9 +17,9 @@ absAS.predict
 
 ## Combine and recode genotypes as Early and Late
 all.pred <- bind_rows(SMR.predict, MMR.predict, absAS.predict, .id = "Var") 
-all.pred$Var <- dplyr::recode(all.pred$Var, "1" = "SMR",  "2" = "MMR", "3" =  "AAS")
-all.pred$x <- dplyr::recode(all.pred$x, "EE" = "Early",  "LL" = "Late")
-all.pred$group <- dplyr::recode(all.pred$group, "EE" = "Early",  "LL" = "Late")
+all.pred$Var <- dplyr::recode(all.pred$Var, "1" = "SMR",  "2" = "MMR", "3" =  "AS")
+all.pred$x <- dplyr::recode(all.pred$x, "-0.5" = "Early",  "0.5" = "Late")
+all.pred$group <- dplyr::recode(all.pred$group, "-0.5" = "Early",  "0.5" = "Late")
 
 ## Make data frame for annotating plot with significance values
 # Vgll3 effect in six6 LL
@@ -29,7 +28,7 @@ annot_text_vg_MMR <- data.frame(
   Var = "MMR",
   group1= "Early",
   group2 ="Late",
-  p = c("p = 0.0001")
+  p = c("p = 0.0001") 
 )
 
 # six6 effect in vgll3 LL
@@ -39,7 +38,7 @@ annot_text_s6_MMR <- data.frame(
   Var = "MMR",
   group1= "Early",
   group2 ="Late",
-  p = c("p = 0.0107")
+  p = c("p = 0.019")
 )
 
 #Other p-values added in powerpoint because adding them to vgll3 main effect not feasible :/
@@ -51,7 +50,7 @@ All.pred.plot<-
   geom_point(position = position_dodge(.3), 
              stat = "identity",size =2) +
   # y-axis title is the plot title
-  ggtitle(label = expression(paste("mg ", O[2], "/kg/h (90% CI)"))) +
+  ggtitle(label = expression(paste("Predicted mean, mg ", O[2], "/kg/h (90% CI)"))) +
   xlab("vgll3")+
   labs(shape = "six6")+
   scale_y_continuous(limits = c(100,700), breaks = scales::extended_breaks(10))+
