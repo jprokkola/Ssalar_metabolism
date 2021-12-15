@@ -38,7 +38,7 @@ annot_text_s6_MMR <- data.frame(
   Var = "MMR",
   group1= "Early",
   group2 ="Late",
-  p = c("p = 0.019")
+  p = c("p = 0.020")
 )
 
 #Other p-values added in powerpoint because adding them to vgll3 main effect not feasible :/

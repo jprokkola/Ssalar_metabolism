@@ -27,9 +27,9 @@ Analysing standard metabolic rates. Data has been corrected for background respi
 > 
 >Combining High food and Low food SMR data. Compare SMR from quantile and MLND approaches, and get N per group.
 >
->`SMR_models.R`
+>`SMR_models_revised.R`
 >
-> Statistical analysis of SMR with linear mixed models. Calculating mass-scaling exponents and predicted means for plotting.
+> Statistical analysis of SMR with linear mixed models and model averaging. Calculating mass-scaling exponents and predicted means for plotting.
 
 
 ## Folder: MMR analysis
@@ -55,9 +55,9 @@ Sub-folders High food and Low food for fish different treatments. Each has scrip
 >
 >Combining High food and Low food MMR data. 
 >
->`5.` `MMR_models.R.`
+>`5.` `MMR_models_revised.R.`
 >
->Statistical analysis with linear mixed models. Calculating predicted means for plotting.
+>Statistical analysis with linear mixed models and model averaging. Calculating predicted means for plotting.
 
 
 ## Folder: Aerobic scope analysis
@@ -66,9 +66,9 @@ Sub-folders High food and Low food for fish different treatments. Each has scrip
 > 
 > Combining SMR and MMR data, and calculating absolute aerobic scope and mass- and family-residuals for each trait.
 > 
-> `AbsAS_models.R`
+> `AbsAS_models_revised.R`
 > 
-> Statistical analysis with linear mixed models. Calculating predicted means for plotting.
+> Statistical analysis with linear mixed models and model averaging. Calculating predicted means for plotting.
 
 
 ## Folder: Plot all traits
